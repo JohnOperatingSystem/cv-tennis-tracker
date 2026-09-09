@@ -1,0 +1,55 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+pytest-cache-files-*/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.vendor/
+.local-backup/
+
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+secrets.*
+
+# Large model and archive files
+*.pt
+*.pth
+*.onnx
+*.engine
+*.zip
+
+# Videos and generated results
+*.avi
+*.mp4
+runs/
+input_videos/
+output_videos/
+tracker_stubs/
+*.pkl
+*.pickle
+*.log
+
+# Downloaded third-party datasets and generated manifests
+external/
+
+# Raw training datasets (keep their README and metadata files)
+/training/tennis_court_det_dataset/data/
+/training/tennis-ball-detection-6/tennis-ball-detection-6/
+
+# Contains copied Google Drive browser-cookie headers; sanitize before tracking
+/training/tennis_court_keypoints_training.ipynb
+
+# OS-generated files
+.DS_Store
+Thumbs.db

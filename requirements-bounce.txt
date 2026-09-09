@@ -1,0 +1,2 @@
+# Additional dependency for the exact-frame E2E-Spot bounce model.
+timm>=1.0,<2
