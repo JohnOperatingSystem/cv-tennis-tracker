@@ -9,7 +9,6 @@ A computer-vision pipeline for **standard and wheelchair tennis**. The project d
 ![Tracker demo](images/tracker_demo.png)
 
 ### Animated Preview
-
 ![Tennis CV Tracker Demo](images/tracker_demo.gif)
 
 The overlay shows:
