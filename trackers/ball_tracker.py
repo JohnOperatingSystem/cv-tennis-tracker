@@ -46,8 +46,13 @@ class BallTracker:
         false detection from being propagated across a large part of a rally.
         """
         interpolated = [dict(position) for position in ball_positions]
+        self._remove_isolated_track_jumps(
+            interpolated,
+            max_gap=max_gap,
+            maximum_average_step=maximum_average_step,
+        )
         valid_indices = [
-            index for index, position in enumerate(ball_positions)
+            index for index, position in enumerate(interpolated)
             if position.get(1)
         ]
 
@@ -56,8 +61,8 @@ class BallTracker:
             if gap <= 0 or gap > max_gap:
                 continue
 
-            start_box = np.asarray(ball_positions[start_index][1], dtype=float)
-            end_box = np.asarray(ball_positions[end_index][1], dtype=float)
+            start_box = np.asarray(interpolated[start_index][1], dtype=float)
+            end_box = np.asarray(interpolated[end_index][1], dtype=float)
             start_center = np.asarray(
                 ((start_box[0] + start_box[2]) / 2,
                  (start_box[1] + start_box[3]) / 2),
@@ -81,6 +86,63 @@ class BallTracker:
                 interpolated[start_index + offset] = {1: box.tolist()}
 
         return interpolated
+
+    @staticmethod
+    def _remove_isolated_track_jumps(
+        positions,
+        max_gap,
+        maximum_average_step,
+    ):
+        """Remove short detector runs that leave and rejoin a smooth path."""
+        valid = [bool(position.get(1)) for position in positions]
+        runs = []
+        run_start = None
+        for frame_num, is_valid in enumerate(valid):
+            if is_valid and run_start is None:
+                run_start = frame_num
+            if run_start is not None and (
+                not is_valid or frame_num == len(valid) - 1
+            ):
+                run_end = frame_num if is_valid else frame_num - 1
+                runs.append((run_start, run_end))
+                run_start = None
+
+        def center(frame_num):
+            box = np.asarray(positions[frame_num][1], dtype=float)
+            return np.asarray(
+                ((box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0),
+                dtype=float,
+            )
+
+        deviation_limit = max(24.0, 1.5 * maximum_average_step)
+        for run_index, (start, end) in enumerate(runs):
+            if end - start + 1 > 3 or run_index == 0 or run_index == len(runs) - 1:
+                continue
+            previous_frame = runs[run_index - 1][1]
+            next_frame = runs[run_index + 1][0]
+            if (
+                start - previous_frame - 1 > max_gap
+                or next_frame - end - 1 > max_gap
+            ):
+                continue
+            previous_center = center(previous_frame)
+            next_center = center(next_frame)
+            frame_span = next_frame - previous_frame
+            if (
+                np.linalg.norm(next_center - previous_center) / frame_span
+                > maximum_average_step
+            ):
+                continue
+            deviations = []
+            for frame_num in range(start, end + 1):
+                ratio = (frame_num - previous_frame) / frame_span
+                expected = previous_center + ratio * (
+                    next_center - previous_center
+                )
+                deviations.append(np.linalg.norm(center(frame_num) - expected))
+            if deviations and min(deviations) > deviation_limit:
+                for frame_num in range(start, end + 1):
+                    positions[frame_num] = {}
 
     def get_ball_shot_frames(self, ball_positions):
         mid_y = np.full(len(ball_positions), np.nan, dtype=float)

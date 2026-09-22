@@ -18,7 +18,7 @@ def _format_speed(value):
 
 
 def get_stats_board_layout(frame_shape):
-    """Return a uniformly scaled version of the 1280x720 stats layout."""
+    """Return a compact, bottom-right stats-board layout."""
     if len(frame_shape) < 2:
         raise ValueError("Frame shape must contain height and width")
     frame_height, frame_width = frame_shape[:2]
@@ -33,20 +33,11 @@ def get_stats_board_layout(frame_shape):
     def scaled(value):
         return max(1, int(round(value * scale)))
 
-    width = scaled(350)
-    height = scaled(300)
-    right_margin = scaled(50)
-    mini_court_width = scaled(250)
-    panel_gap = scaled(20)
-    top_margin = scaled(50)
-    start_x = (
-        frame_width
-        - right_margin
-        - mini_court_width
-        - panel_gap
-        - width
-    )
-    start_y = top_margin
+    width = scaled(315)
+    height = scaled(230)
+    margin = scaled(24)
+    start_x = frame_width - margin - width
+    start_y = frame_height - margin - height
     return {
         "scale": scale,
         "start_x": start_x,
@@ -101,7 +92,7 @@ def draw_player_stats(output_video_frames, player_stats, point_result=None):
             color=(255, 255, 255),
         ):
             rendered_font_scale = max(0.1, font_scale * scale)
-            available_width = scaled(350 - offset_x - 8)
+            available_width = scaled(315 - offset_x - 8)
             text_width = cv2.getTextSize(
                 text,
                 cv2.FONT_HERSHEY_SIMPLEX,
@@ -134,51 +125,51 @@ def draw_player_stats(output_video_frames, player_stats, point_result=None):
         )
         cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
 
-        draw_text("     Player 1     Player 2", 80, 30, 0.6, 2)
-        draw_text("Shot Speed", 10, 80, 0.45, 1)
+        draw_text("Player 1       Player 2", 105, 24, 0.46, 1)
+        draw_text("Shot Speed", 8, 58, 0.4, 1)
         draw_text(
             f"{player_1_shot_speed} km/h    {player_2_shot_speed} km/h",
-            130,
-            80,
-            0.5,
-            2,
+            105,
+            58,
+            0.4,
+            1,
         )
 
-        draw_text("Player Speed", 10, 120, 0.45, 1)
+        draw_text("Player Speed", 8, 90, 0.4, 1)
         draw_text(
             f"{player_1_speed} km/h    {player_2_speed} km/h",
-            130,
-            120,
-            0.5,
-            2,
+            105,
+            90,
+            0.4,
+            1,
         )
 
-        draw_text("avg. S. Speed", 10, 160, 0.45, 1)
+        draw_text("Avg Shot", 8, 122, 0.4, 1)
         draw_text(
             f"{avg_player_1_shot_speed} km/h    "
             f"{avg_player_2_shot_speed} km/h",
-            130,
-            160,
-            0.5,
-            2,
+            105,
+            122,
+            0.4,
+            1,
         )
 
-        draw_text("avg. P. Speed", 10, 200, 0.45, 1)
+        draw_text("Avg Player", 8, 154, 0.4, 1)
         draw_text(
             f"{avg_player_1_speed} km/h    {avg_player_2_speed} km/h",
-            130,
-            200,
-            0.5,
-            2,
+            105,
+            154,
+            0.4,
+            1,
         )
 
-        draw_text("Ball Speed", 10, 240, 0.45, 1)
+        draw_text("Ball Speed", 8, 186, 0.4, 1)
         quality = row.get("ball_speed_quality", "unavailable")
         draw_text(
             f"{ball_speed} km/h ({quality})",
-            130,
-            240,
-            0.48,
+            105,
+            186,
+            0.4,
             1,
         )
 
@@ -196,10 +187,10 @@ def draw_player_stats(output_video_frames, player_stats, point_result=None):
                 )
             draw_text(
                 result_text,
-                10,
-                280,
-                0.55,
-                2,
+                8,
+                218,
+                0.42,
+                1,
                 color=(0, 255, 255),
             )
 

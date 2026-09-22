@@ -22,10 +22,12 @@ class MiniCourt():
             frame_width / self.REFERENCE_FRAME_WIDTH,
             frame_height / self.REFERENCE_FRAME_HEIGHT,
         )
-        self.drawing_rectangle_width = self._scaled(250)
-        self.drawing_rectangle_height = self._scaled(500)
-        self.buffer = self._scaled(50)
-        self.padding_court = self._scaled(20)
+        # Keep the court as a compact top-right overlay.  The panel remains
+        # tall enough to preserve a regulation court's proportions.
+        self.drawing_rectangle_width = self._scaled(165)
+        self.drawing_rectangle_height = self._scaled(330)
+        self.buffer = self._scaled(24)
+        self.padding_court = self._scaled(14)
         self.line_thickness = max(1, self._scaled(2))
         self.point_radius = max(2, self._scaled(5))
         

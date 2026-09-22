@@ -185,8 +185,13 @@ class PointAnalyzer:
             else None
         )
         frames_after_bounce = len(raw_ball_positions) - 1 - first_bounce["frame"]
+        # A point-ending clip with no later racket contact can finish after
+        # any legal landing: the receiver may stop before using every bounce
+        # wheelchair rules permit. Require enough post-landing footage to
+        # avoid calling a clip that ends immediately at the bounce.
+        terminal_wait_seconds = 0.75 + 0.35 * (self.allowed_bounces - 1)
         enough_terminal_video = frames_after_bounce >= max(
-            2, round(0.20 * self.fps)
+            2, round(terminal_wait_seconds * self.fps)
         )
         if limit_bounce is not None:
             confidence = min(
@@ -199,10 +204,9 @@ class PointAnalyzer:
         elif (
             self.clip_ends_with_point
             and enough_terminal_video
-            and len(impacts) >= self.allowed_bounces
         ):
             confidence = min(0.88, first_bounce["confidence"])
-            terminal_frame = impacts[self.allowed_bounces - 1]["frame"]
+            terminal_frame = impacts[-1]["frame"]
             terminal_inferred = True
         else:
             return self._unknown(

@@ -216,7 +216,7 @@ def main(
     input_video_path = str(
         Path(input_video_path)
         if input_video_path is not None
-        else BASE_DIR / "input_videos" / "input_video4.mp4"
+        else BASE_DIR / "input_videos" / "input2.mp4"
     )
     video_fps = get_video_fps(input_video_path)
     video_frames = read_video(input_video_path)
@@ -592,10 +592,6 @@ def main(
         },
         ball_visibility_states=ball_visibility_states,
     )
-    for frame_num in range(measurement_end + 1, len(display_ball_detections)):
-        display_ball_detections[frame_num] = {}
-        ball_visibility_states[frame_num] = "unknown"
-
     predicted_high_arc_frames = {
         frame_num
         for frame_num, state in enumerate(ball_visibility_states)

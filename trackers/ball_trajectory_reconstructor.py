@@ -557,6 +557,15 @@ class BallTrajectoryReconstructor:
                         and candidate["player_distance_ratio"] <= 1.35
                     )
                 )
+                # A high-confidence bounce model observation should not be
+                # promoted to a racket contact merely because the same motion
+                # discontinuity is within the broad hit search radius. Keep a
+                # genuinely close half-volley/contact eligible.
+                and not (
+                    candidate.get("learned_bounce_confidence", 0.0) >= 0.70
+                    and candidate.get("temporal_confidence", 0.0) < 0.72
+                    and candidate["player_distance_ratio"] > 0.45
+                )
                 and candidate["player_id"] is not None
             ),
             key=lambda item: item["frame"],
@@ -1099,6 +1108,14 @@ class BallTrajectoryReconstructor:
             if hit is not None:
                 hits.append(hit)
 
+        hits = self._infer_missing_gap_hits(
+            hits,
+            ball_detections,
+            player_detections,
+            player_mini_positions,
+            ball_mini_positions,
+        )
+
         events = list(hits)
         net_y = (
             mini_court.drawing_key_points[1]
@@ -1616,6 +1633,89 @@ class BallTrajectoryReconstructor:
                 ),
             ),
             dtype=float,
+        )
+
+    def _infer_missing_gap_hits(
+        self,
+        hits,
+        ball_detections,
+        player_detections,
+        player_mini_positions,
+        ball_mini_positions,
+    ):
+        """Recover a contact hidden at the edge of a long detector gap.
+
+        Consecutive contacts by the same player in singles usually mean the
+        opponent's return was lost with the ball. Only add a contact when a
+        long empty run starts or ends with the ball at that opponent.
+        """
+        if len(hits) < 2:
+            return hits
+
+        minimum_gap = max(5, round(0.30 * self.fps))
+        inferred_hits = []
+        for first_hit, second_hit in zip(hits, hits[1:]):
+            if (
+                first_hit.get("player_id") != second_hit.get("player_id")
+                or first_hit.get("player_id") not in (1, 2)
+            ):
+                continue
+            missing_player_id = 1 if first_hit["player_id"] == 2 else 2
+            candidate_frames = []
+            frame_num = first_hit["frame"] + 1
+            while frame_num < second_hit["frame"]:
+                if ball_detections[frame_num].get(1) is not None:
+                    frame_num += 1
+                    continue
+                gap_start = frame_num
+                while (
+                    frame_num < second_hit["frame"]
+                    and ball_detections[frame_num].get(1) is None
+                ):
+                    frame_num += 1
+                gap_end = frame_num - 1
+                if gap_end - gap_start + 1 < minimum_gap:
+                    continue
+                for boundary in (gap_start - 1, gap_end + 1):
+                    if not first_hit["frame"] < boundary < second_hit["frame"]:
+                        continue
+                    ball_bbox = ball_detections[boundary].get(1)
+                    player_bbox = player_detections[boundary].get(
+                        missing_player_id
+                    )
+                    if ball_bbox is None or player_bbox is None:
+                        continue
+                    ball_center = self._bbox_center(ball_bbox)
+                    player_height = max(1.0, player_bbox[3] - player_bbox[1])
+                    distance_ratio = (
+                        self._point_to_bbox_distance(ball_center, player_bbox)
+                        / player_height
+                    )
+                    if distance_ratio <= 0.30:
+                        candidate_frames.append((distance_ratio, boundary))
+
+            if not candidate_frames:
+                continue
+            _, inferred_frame = min(candidate_frames)
+            inferred_hit = self._make_hit_event(
+                inferred_frame,
+                ball_detections,
+                player_detections,
+                player_mini_positions,
+                ball_mini_positions,
+            )
+            if (
+                inferred_hit is None
+                or inferred_hit.get("player_id") != missing_player_id
+            ):
+                continue
+            inferred_hit["inferred"] = True
+            inferred_hit["event_source"] = "detector_gap"
+            inferred_hits.append(inferred_hit)
+
+        return sorted(
+            [*hits, *inferred_hits],
+            key=lambda event: event["frame"],
         )
 
     def _make_hit_event(
