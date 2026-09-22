@@ -1,0 +1,16 @@
+name: tennis
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - opencv
+  - pillow
+  - pip
+  - pytorch
+  - torchvision
+  - pip:
+      - ultralytics
+      - timm

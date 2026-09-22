@@ -1,109 +1,213 @@
 # Tennis CV Tracker
 
-A computer-vision pipeline for standard and wheelchair tennis. It detects the
-court, players, and ball; reconstructs the rally; estimates player and ball
-speeds; identifies bounces; and determines the point winner and reason.
+A computer-vision pipeline for **standard and wheelchair tennis**. The project detects the **court, players, and ball**, reconstructs rally events, estimates **player and ball speeds**, identifies **bounces**, and determines the **point winner / ending reason**.
 
-## Run the tracker
+## Demo
 
-Activate the project environment, place the video in `input_videos`, and
-run:
+### Sample Output
 
-```powershell
+![Tracker demo](assets/tracker_demo.png)
+
+### Animated Preview
+
+![Tracker demo GIF](assets/tracker_demo.gif)
+
+The overlay shows:
+- court keypoints and a mini-court view
+- player tracking with logical IDs (`P1` / `P2`)
+- ball detection and trajectory cues
+- live speed statistics for both players and the ball
+
+## Features
+
+- **Court detection** using a learned keypoint model
+- **Player detection and tracking** for both standard and wheelchair tennis
+- **Ball detection and trajectory reconstruction**
+- **Scene-cut filtering** to ignore pre-roll and post-point broadcast cuts
+- **Speed estimation** for players and shots
+- **Bounce detection** with an optional learned E2E-Spot model
+- **Point analysis** to infer the winner and point-ending reason
+- **Detection caching** for faster reruns
+
+## How It Works
+
+The pipeline in `main.py` works roughly as follows:
+
+1. Load the input tennis video.
+2. Detect the full-court scene and skip broadcast pre-roll.
+3. Detect court keypoints.
+4. Detect players and assign stable player IDs.
+5. Detect and track the ball.
+6. Reconstruct the rally and bounce sequence.
+7. Estimate player speed and shot speed.
+8. Determine the point result and render the annotated output video.
+
+## Project Structure
+
+```text
+cv-tennis-tracker/
+├── constants/
+├── court_line_detector/
+├── mini_court/
+├── tenniset/
+├── trackers/
+├── training/
+├── utils/
+├── main.py
+├── requirements-bounce.txt
+└── README.md
+```
+
+## Environment Setup (Conda)
+
+I recommend using a dedicated **Conda** environment.
+
+### 1. Create and activate the environment
+
+```bash
+conda create -n tennis python=3.10 -y
 conda activate tennis
+```
+
+### 2. Install core dependencies
+
+Install the common scientific/computer-vision packages with Conda:
+
+```bash
+conda install -c conda-forge numpy pandas opencv pillow -y
+```
+
+Then install the deep-learning packages and YOLO dependency:
+
+```bash
+pip install torch torchvision ultralytics
+```
+
+### 3. Optional: install the bounce-model dependency
+
+If you want the exact-frame learned bounce detector, install:
+
+```bash
+pip install -r requirements-bounce.txt
+```
+
+That file currently installs:
+
+- `timm`
+
+### 4. Optional: save this as an environment file
+
+You can also create an `environment.yml` like this:
+
+```yaml
+name: tennis
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - opencv
+  - pillow
+  - pip
+  - pytorch
+  - torchvision
+  - pip:
+      - ultralytics
+      - timm
+```
+
+Then create it with:
+
+```bash
+conda env create -f environment.yml
+conda activate tennis
+```
+
+## Required Model Files
+
+Model weights are **not included** in the repository and should be placed manually.
+
+Expected paths:
+
+```text
+models/keypoints_model.pth          # court keypoint model
+models/best.pt                      # tennis ball detector
+yolov8x.pt                          # generic player detector
+models/wheelchair_best.pt           # optional wheelchair player detector
+models/tennis_bounce_e2espot.pt     # optional learned bounce detector
+```
+
+## Running the Tracker
+
+Place your input video in `input_videos/`, then run:
+
+```bash
 python main.py input_videos/input_video.mp4
 ```
 
-The annotated video, point result, statistics, and detection caches are written
-to `output_videos`. Add `--no-open` to prevent the rendered video from opening
-automatically.
+To prevent the rendered video from opening automatically:
 
-Model weights are intentionally excluded from Git. The application expects the
-ball and court models under `models`, the generic player model at `yolov8x.pt`,
-and optionally `models/wheelchair_best.pt` for wheelchair detection.
+```bash
+python main.py input_videos/input_video.mp4 --no-open
+```
 
-## Bounce detection
+The program writes the annotated output video, statistics, point result, and cached detections to `output_videos/`.
 
-The tracker combines E2E-Spot frame-level predictions with the tracked ball
-path, court homography, player proximity, and rally order. The model predicts
-bounce timing; trajectory geometry supplies and validates the landing position.
+## Optional Bounce Model
 
-The checkpoint is expected at `models/tennis_bounce_e2espot.pt`. Install its
-additional dependency and download the checkpoint with:
+To download the bounce checkpoint helper assets used by the repo:
 
-```powershell
-python -m pip install -r requirements-bounce.txt
+```bash
 python training/download_bounce_model.py
 ```
 
-Useful options include `--no-bounce-model`, `--bounce-model PATH`, and
-`--bounce-confidence 0.35`. Predictions are cached under `output_videos`.
+Useful options:
 
-For wheelchair footage, fine-tune on exact impact frames from several matches.
-Include at least 300 checked bounces, at least 100 second bounces, and difficult
-swing/serve negatives. Split training and validation by match.
+```bash
+python main.py input_videos/input_video.mp4 --no-bounce-model
+python main.py input_videos/input_video.mp4 --bounce-model models/tennis_bounce_e2espot.pt
+python main.py input_videos/input_video.mp4 --bounce-confidence 0.35
+```
 
-- Training implementation: <https://github.com/jhong93/spot>
-- Published checkpoints: <https://github.com/jhong93/e2e-spot-models>
+## Optional TenniSet Temporal Models
 
-## Optional TenniSet models
+TenniSet-based temporal models can be used for extra event and outcome signals.
 
-TenniSet can provide temporal signals for serves, hits, winner side, and the
-point-ending reason. Court and ball geometry remain authoritative for position,
-speed, and complete geometric calls.
+Prepare and train from the repository root:
 
-Download the annotations from <https://github.com/HaydenFaulkner/Tennis> into
-`external/tenniset/annotations`. Place `V006.mp4` through `V010.mp4` in
-`external/tenniset/videos`, then prepare and train from the repository root:
-
-```powershell
+```bash
 python training/prepare_tenniset.py
 python training/train_tenniset_temporal.py --task event --pretrained --output models/tenniset_event.pt
 python training/train_tenniset_temporal.py --task outcome --pretrained --output models/tenniset_outcome.pt
 ```
 
-Run the trained models with:
+Run with the trained models:
 
-```powershell
-python main.py input_videos/input_video.mp4 `
-  --event-model models/tenniset_event.pt `
+```bash
+python main.py input_videos/input_video.mp4 \
+  --event-model models/tenniset_event.pt \
   --outcome-model models/tenniset_outcome.pt
 ```
 
-The paths may instead be set through `TENNIS_EVENT_MODEL` and
-`TENNIS_OUTCOME_MODEL`.
+## Output
 
-## Third-party notices
+The tracker can produce:
 
-### E2E-Spot tennis model
+- an annotated rally video
+- player speed statistics
+- shot speed statistics
+- bounce predictions
+- cached detections for faster reruns
+- point winner / point-ending reason
 
-`models/tennis_bounce_e2espot.pt` is the published
-`tennis_rny002gsm_gru_rgb/checkpoint_040.pt` checkpoint from
-<https://github.com/jhong93/e2e-spot-models>. The compatible architecture in
-`tenniset/bounce_spotter.py` is adapted from <https://github.com/jhong93/spot>.
+## Notes
 
-Copyright 2022 James Hong, Haotian Zhang, Matthew Fisher, Michael Gharbi,
-Kayvon Fatahalian
+- This project is designed for **broadcast-style tennis footage** with a visible full-court view.
+- The code supports both **standard** and **wheelchair** tennis.
+- Some features depend on optional model files that are intentionally excluded from Git.
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
+## Author
 
-1. Redistributions of source code must retain the above copyright notice,
-   this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-3. Neither the name of the copyright holder nor the names of its contributors
-   may be used to endorse or promote products derived from this software
-   without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+**John Chen**
