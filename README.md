@@ -9,7 +9,7 @@ A computer-vision pipeline for **standard and wheelchair tennis**. The project d
 ![Tracker demo](images/tracker_demo.png)
 
 ### Animated Preview
-![Tennis CV Tracker Demo](images/tracker_demo.gif)
+![Tennis CV Tracker Demo](images/tracker_demo_v2.gif)
 
 The overlay shows:
 - court keypoints and a mini-court view
